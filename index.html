@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Life OS Ultimate Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root { --bg1:#0a0a0a; --bg2:#1a1a1a; --card:#151515; --card2:#222; --text:white; --accent:#4ade80; --border:#2a2a2a; }
+[data-theme="light"] { --bg1:#f5f5f5; --bg2:#ffffff; --card:#ffffff; --card2:#f0f0f0; --text:#111; --accent:#16a34a; --border:#e0e0e0; }
+body { background:linear-gradient(135deg,var(--bg1),var(--bg2)); color:var(--text); font-family:-apple-system,sans-serif; padding:15px; margin:0; }
+.theme-toggle { position:fixed; top:15px; right:15px; background:var(--card2); border:none; border-radius:50%; width:45px; height:45px; font-size:20px; cursor:pointer; z-index:999; }
+#lockScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg1); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
+.fingerprint-btn { background:var(--card2); border:2px solid var(--accent); border-radius:50%; width:80px; height:80px; font-size:40px; margin:15px; cursor:pointer; }
+.quote-box { background:linear-gradient(135deg,#4ade80,#3b82f6); color:white; padding:15px; border-radius:12px; margin-bottom:15px; text-align:center; font-weight:600; }
+.header { text-align:center; margin-bottom:20px; }
+.header h1 { color:var(--accent); margin:5px; font-size:28px; }
+.stats { display:flex; gap:10px; margin:15px 0; }
+.stat-card { flex:1; background:var(--card2); padding:12px; border-radius:10px; text-align:center; border:1px solid var(--border); }
+.stat-card h3 { margin:0; color:var(--accent); font-size:18px; }
+.tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.tab-btn { padding:10px 12px; border:none; border-radius:10px; background:var(--card2); color:#888; font-weight:600; font-size:13px; cursor:pointer; }
+.tab-btn.active { background:var(--accent); color:black; }
+.tab-content { display:none; background:var(--card); padding:20px; border-radius:16px; margin-top:20px; border:1px solid var(--border); }
+.tab-content.active { display:block; }
+input, textarea { width:100%; padding:12px; margin:10px 0; background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:8px; }
+button.save { width:100%; padding:14px; background:var(--accent); border:none; border-radius:10px; font-weight:bold; color:black; font-size:16px; cursor:pointer; margin-top:8px; }
+button.mic { background:#ef4444; }
+button.mic.recording { background:#22c55e; animation:pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.list-item { background:var(--card2); padding:12px; border-radius:8px; margin:8px 0; display:flex; justify-content:space-between; }
+.delete-btn { background:#ff4444; color:white; border:none; border-radius:6px; padding:5px 10px; }
+.chart-container { background:var(--card2); padding:15px; border-radius:12px; margin-top:15px; }
+.notification { background:#3b82f6; color:white; padding:12px; border-radius:10px; margin-bottom:10px; }
+.ai-box { background:linear-gradient(135deg,#8b5cf6,#ec4899); color:white; padding:15px; border-radius:12px; margin-top:15px; }
+.success { color:#4ade80; font-weight:bold; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+<audio id="alarmAudio"></audio>
+
+<div id="lockScreen">
+<h2>🔒 Life OS</h2>
+<button class="fingerprint-btn" onclick="loginWithBiometric()">👆</button>
+<p>Tap Fingerprint or Enter PIN</p>
+<input id="passwordInput" type="password" placeholder="1234" maxlength="10">
+<button class="save" onclick="checkPassword()">Unlock</button>
+<p id="bioStatus" class="success"></p>
+</div>
+
+<div id="mainApp" style="display:none;">
+<div id="notificationArea"></div>
+<div class="quote-box" id="dailyQuote"></div>
+<div class="header"><h1>Life OS PRO</h1>
+<div class="stats">
+<div class="stat-card"><h3 id="totalMoney">N0</h3><p>Spent</p></div>
+<div class="stat-card"><h3 id="totalHabits">0</h3><p>Habits</p></div>
+<div class="stat-card"><h3 id="totalWorkouts">0</h3><p>Gym</p></div>
+</div></div>
+
+<div class="tabs">
+<button class="tab-btn active" onclick="showTab('journal',event)">Journal</button>
+<button class="tab-btn" onclick="showTab('reminders',event)">Reminders</button>
+<button class="tab-btn" onclick="showTab('money',event)">Money</button>
+<button class="tab-btn" onclick="showTab('habits',event)">Habits</button>
+<button class="tab-btn" onclick="showTab('workout',event)">Workout</button>
+<button class="tab-btn" onclick="showTab('goals',event)">Goals</button>
+<button class="tab-btn" onclick="showTab('settings',event)">Settings</button>
+</div>
+
+<div id="journal" class="tab-content active">
+<h2>Voice + Photo Journal</h2>
+<input id="entryDate" type="date">
+<button class="save mic" id="micBtn" onclick="toggleVoice()">🎤 Tap to Talk</button>
+<textarea id="journalInput" rows="4" placeholder="Or type here..."></textarea>
+<label>📸 Add Photo</label>
+<input id="photoInput" type="file" accept="image/*" onchange="previewPhoto(event)">
+<img id="photoPreview" style="width:100%;border-radius:10px;margin-top:10px;display:none;">
+<button class="save" onclick="saveJournal()">Save Entry</button>
+<button class="save" style="background:#3b82f6" onclick="exportJournalPDF()">Export PDF</button>
+<button class="save" style="background:#f59e0b" onclick="lockApp()">Lock App</button>
+<div id="aiAnalysis"></div>
+</div>
+
+<div id="reminders" class="tab-content">
+<h2>Daily Reminders + Alarm 🔔</h2>
+<label>Journal Time</label><input id="journalTime" type="time" value="21:00">
+<label>Workout Time</label><input id="workoutTime" type="time" value="07:00">
+<label>Habit Time</label><input id="habitTime" type="time" value="20:00">
+<button class="save" onclick="saveReminders()">Save Reminders</button>
+<button class="save" style="background:#3b82f6" onclick="testAlarm()">Test Alarm Sound</button>
+</div>
+
+<div id="money" class="tab-content">
+<h2>Money Tracker with CHART</h2>
+<input id="moneyDate" type="date">
+<input id="moneyInput" type="number" placeholder="Amount N">
+<input id="moneyNote" type="text" placeholder="Category: Food, Transport">
+<button class="save" onclick="addExpense()">Save Expense</button>
+<div class="chart-container"><canvas id="moneyChart"></canvas></div>
+<div id="moneyList"></div>
+</div>
+
+<div id="habits" class="tab-content">
+<h2>Habit Tracker 🔥</h2>
+<input id="habitInput" type="text" placeholder="New Habit">
+<button class="save" onclick="addHabit()">Add Habit</button>
+<div id="habitList"></div>
+</div>
+
+<div id="workout" class="tab-content">
+<h2>Workout Log</h2>
+<input id="workoutDate" type="date">
+<input id="workoutInput" type="text" placeholder="Exercise">
+<button class="save" onclick="addWorkout()">Log Workout</button>
+<div id="workoutList"></div>
+</div>
+
+<div id="goals" class="tab-content">
+<h2>Goals 🎯</h2>
+<input id="goalName" type="text" placeholder="Goal name">
+<input id="goalTarget" type="number" placeholder="Target per week">
+<button class="save" onclick="addGoal()">Add Goal</button>
+<div id="goalList"></div>
+</div>
+
+<div id="settings" class="tab-content">
+<h2>Settings ⚙️</h2>
+<h3>Fingerprint Setup</h3>
+<button class="save" style="background:#4ade80" onclick="setupBiometric()">Setup Fingerprint/Face ID</button>
+<p id="bioSetupStatus"></p>
+<h3>Change PIN</h3>
+<input id="oldPassword" type="password" placeholder="Current PIN">
+<input id="newPassword" type="password" placeholder="New PIN">
+<input id="confirmPassword" type="password" placeholder="Confirm">
+<button class="save" style="background:#ef4444" onclick="changePassword()">Update PIN</button>
+<button class="save" style="background:#8b5cf6" onclick="showBackup()">Backup Data</button>
+</div>
+</div>
+
+<script>
+let CORRECT_PASSWORD = localStorage.getItem('lifeOS_password') || '1234';
+let moneyChart;
+let recognition;
+let isRecording = false;
+const QUOTES = ["Discipline is choosing between what you want now and what you want most.","Small progress is still progress.","Don't break the chain!"];
+
+function toggleTheme(){
+  let current = document.documentElement.getAttribute('data-theme');
+  let newTheme = current === 'light'? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('lifeOS_theme', newTheme);
+  document.querySelector('.theme-toggle').innerText = newTheme === 'light'? '🌙' : '☀️';
+}
+
+function playBeep(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+    oscillator.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.8);
+  }catch(e){}
+}
+
+// FINGERPRINT / FACE ID WITH WEBAUTHN
+async function setupBiometric(){
+  if(!window.PublicKeyCredential){
+    document.getElementById('bioSetupStatus').innerText = 'Your phone no support fingerprint';
+    return;
+  }
+  try{
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    const publicKey = {
+      challenge,
+      rp: { name: "Life OS" },
+      user: { id: new Uint8Array(16), name: "user", displayName: "Life OS User" },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }]
+    };
+    const credential = await navigator.credentials.create({ publicKey });
+    localStorage.setItem('lifeOS_biometric', JSON.stringify({ id: credential.id }));
+    document.getElementById('bioSetupStatus').innerText = '✅ Fingerprint Setup Complete!';
+  }catch(e){
+    document.getElementById('bioSetupStatus').innerText = 'Setup cancelled';
+  }
+}
+
+async function loginWithBiometric(){
+  let bioData = localStorage.getItem('lifeOS_biometric');
+  if(!bioData){
+    document.getElementById('bioStatus').innerText = 'Setup fingerprint first in Settings';
+    return;
+  }
+  try{
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    const publicKey = { challenge, allowCredentials: [] };
+    const assertion = await navigator.credentials.get({ publicKey });
+    unlockApp();
+  }catch(e){
+    document.getElementById('bioStatus').innerText = 'Fingerprint failed';
+  }
+}
+
+function unlockApp(){
+  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  loadAll(); loadGoals(); updateChart();
+}
+
+window.onload=function(){
+  let savedTheme = localStorage.getItem('lifeOS_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  document.querySelector('.theme-toggle').innerText = savedTheme === 'light'? '🌙' : '☀️';
+  let today=new Date().toISOString().split('T')[0];
+  document.getElementById('entryDate').value=today;
+  document.getElementById('moneyDate').value=today;
+  document.getElementById('workoutDate').value=today;
+  showDailyQuote(); initVoice(); loadReminders();
+  checkReminders(); setInterval(checkReminders, 60000);
+}
+
+function initVoice(){
+  if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.lang = 'en-NG';
+    recognition.onstart = () => { isRecording=true; document.getElementById('micBtn').innerText='🔴 Listening...'; document.getElementById('micBtn').classList.add('recording'); }
+    recognition.onresult = (e) => { document.getElementById('journalInput').value += e.results[0][0].transcript + ' '; }
+    recognition.onend = () => { isRecording=false; document.getElementById('micBtn').innerText='🎤 Tap to Talk'; document.getElementById('micBtn').classList.remove('recording'); }
+  }
+}
+
+function toggleVoice(){
+  if(!recognition){ alert('Use Chrome Browser'); return; }
+  if(!isRecording) recognition.start(); else recognition.stop();
+}
+
+function previewPhoto(e){
+  let file = e.target.files[0];
+  if(file){
+    let reader = new FileReader();
+    reader.onload = function(ev){
+      document.getElementById('photoPreview').src = ev.target.result;
+      document.getElementById('photoPreview').style.display = 'block';
+    }
+    reader.readAsDataURL(file);
+  }
+}
+
+function showDailyQuote(){
+  document.getElementById('dailyQuote').innerHTML = '💡 ' + QUOTES[new Date().getDate() % QUOTES.length];
+}
+
+function checkPassword(){
+  if(document.getElementById('passwordInput').value===CORRECT_PASSWORD){
+    unlockApp();
+  }else{alert('Wrong PIN!')}
+}
+
+function lockApp(){document.getElementById('lockScreen').style.display='flex';document.getElementById('mainApp').style.display='none'}
+
+function showTab(tabId,e){
+  document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  e.target.classList.add('active');
+  if(tabId==='money')updateChart();
+  if(tabId==='goals')loadGoals();
+}
+
+function save(key,data){localStorage.setItem(key,JSON.stringify(data));updateStats()}
+function load(key){return JSON.parse(localStorage.getItem(key))||[]}
+
+function testAlarm(){playBeep();showNotification('Test Alarm','Alarm working!')}
+function showNotification(title, body){
+  document.getElementById('notificationArea').innerHTML = '<div class="notification"><b>'+title+'</b><br>'+body+'</div>';
+  playBeep();
+  setTimeout(() => { document.getElementById('notificationArea').innerHTML = '' }, 5000);
+}
+
+function saveReminders(){
+  let reminders = {journal:document.getElementById('journalTime').value,workout:document.getElementById('workoutTime').value,habit:document.getElementById('habitTime').value};
+  localStorage.setItem('lifeOS_reminders',JSON.stringify(reminders));
+  alert('Reminders Saved!')
+}
+
+function loadReminders(){
+  let r=JSON.parse(localStorage.getItem('lifeOS_reminders'))||{};
+  if(r.journal)document.getElementById('journalTime').value=r.journal;
+  if(r.workout)document.getElementById('workoutTime').value=r.workout;
+  if(r.habit)document.getElementById('habitTime').value=r.habit;
+}
+
+function checkReminders(){
+  let r=JSON.parse(localStorage.getItem('lifeOS_reminders'))||{};
+  let now=new Date();
+  let currentTime=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  if(currentTime===r.journal)showNotification('Journal Time','Write today!');
+  if(currentTime===r.workout)showNotification('Workout Time','Go gym!');
+  if(currentTime===r.habit)showNotification('Habit Check','Check habits!');
+}
+
+function aiAnalyze(text){
+  let mood = text.includes('happy')||text.includes('good')?'positive':text.includes('sad')||text.includes('stress')?'negative':'neutral';
+  let advice = mood==='positive'?'🔥 Keep this energy!':mood==='negative'?'💙 Tomorrow go better. You strong!':'📝 Consistency na the key!';
+  document.getElementById('aiAnalysis').innerHTML = '<div class="ai-box"><b>AI Coach:</b><br>'+advice+'</div>';
+}
+
+function saveJournal(){
+  let date=document.getElementById('entryDate').value;
+  let text=document.getElementById('journalInput').value;
+  let photo=document.getElementById('photoPreview').src;
+  if(text){
+    let list=load('journal');
+    list.push({date:date,text:text,photo:photo.includes('data:image')?photo:''});
+    save('journal',list);
+    aiAnalyze(text);
+    alert('Saved!');
+    document.getElementById('journalInput').value='';
+    document.getElementById('photoPreview').style.display='none';
+  }
+}
+
+function addExpense(){
+  let date=document.getElementById('moneyDate').value;
+  let amt=document.getElementById('moneyInput').value;
+  let note=document.getElementById('moneyNote').value;
+  if(amt){
+    let list=load('money');
+    list.push({date:date,amt:parseInt(amt),note:note||'Other'});
+    save('money',list);
+    document.getElementById('moneyInput').value='';
+    document.getElementById('moneyNote').value='';
+    loadAll(); updateChart();
+  }
+}
+
+function updateChart(){
+  let money=load('money');
+  let categories={};
+  money.forEach(item=>{let cat=item.note||'Other';categories[cat]=(categories[cat]||0)+item.amt});
+  let ctx=document.getElementById('moneyChart');
+  if(moneyChart)moneyChart.destroy();
+  moneyChart=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(categories),datasets:[{data:Object.values(categories),backgroundColor:['#4ade80','#3b82f6','#f59e0b','#ef4444']}]}});
+}
+
+function addWorkout(){
+  let date=document.getElementById('workoutDate').value;
+  let text=document.getElementById('workoutInput').value;
+  if(text){
+    let list=load('workout');
+    list.push({date:date,text:text});
+    save('workout',list);
+    document.getElementById('workoutInput').value='';
+    loadAll();
+  }
+}
+
+function addHabit(){
+  let t=document.getElementById('habitInput').value;
+  if(t){
+    let l=load('habits');
+    l.push({name:t,streak:0,lastDone:''});
+    save('habits',l);
+    document.getElementById('habitInput').value='';
+    loadHabits();
+  }
+}
+
+function completeHabit(index){
+  let l=load('habits');
+  let today=new Date().toISOString().split('T')[0];
+  if(l[index].lastDone!==today){
+    l[index].streak+=1;
+    l[index].lastDone=today;
+    save('habits',l);
+    showNotification('Streak!',l[index].name+' '+l[index].streak+' days');
+    loadHabits();
+  }else{alert('Done today already!')}
+}
+
+function loadHabits(){
+  let habits=load('habits');
+  document.getElementById('habitList').innerHTML=habits.map((h,x)=>'<div class="list-item"><span>'+h.name+' - '+h.streak+' days</span><button class="save" style="padding:5px 10px;font-size:12px;width:auto" onclick="completeHabit('+x+')">Done</button></div>').join('');
+}
+
+function deleteItem(k,i){let l=load(k);l.splice(i,1);save(k,l);loadAll()}
+
+function addGoal(){
+  let name=document.getElementById('goalName').value;
+  let target=document.getElementById('goalTarget').value;
+  if(name&&target){
+    let goals=load('goals');
+    goals.push({name:name,target:parseInt(target),progress:0});
+    save('goals',goals);
+    document.getElementById('goalName').value='';
+    document.getElementById('goalTarget').value='';
+    loadGoals();
+  }
+}
+
+function loadGoals(){
+  let goals=load('goals');
+  document.getElementById('goalList').innerHTML=goals.map((g,x)=>'<div class="list-item"><span><b>'+g.name+'</b><br>'+g.progress+'/'+g.target+'</span><button class="save" style="padding:5px 10px;width:auto" onclick="addGoalProgress('+x+')">+1</button></div>').join('');
+}
+
+function addGoalProgress(x){
+  let goals=load('goals');
+  goals[x].progress+=1;
+  save('goals',goals);
+  loadGoals();
+}
+
+function changePassword(){
+  let oldPass=document.getElementById('oldPassword').value;
+  let newPass=document.getElementById('newPassword').value;
+  if(oldPass===CORRECT_PASSWORD){
+    CORRECT_PASSWORD=newPass;
+    localStorage.setItem('lifeOS_password',newPass);
+    alert('PIN Changed!')
+  }else{alert('Wrong current PIN')}
+}
+
+function showBackup(){
+  let data={journal:load('journal'),money:load('money'),workout:load('workout'),habits:load('habits'),goals:load('goals')};
+  prompt("COPY THIS BACKUP:",JSON.stringify(data));
+}
+
+function exportJournalPDF(){
+  const doc=new jsPDF();
+  doc.setFontSize(20);
+  doc.text('Life OS Journal',20,20);
+  doc.save('Journal.pdf');
+  alert('PDF Downloaded!')
+}
+
+function loadAll(){
+  document.getElementById('moneyList').innerHTML=load('money').map((i,x)=>'<div class="list-item"><span>'+i.date+': N'+i.amt+' - '+i.note+'</span><button class="delete-btn" onclick="deleteItem(\'money\','+x+')">Del</button></div>').join('');
+  document.getElementById('workoutList').innerHTML=load('workout').map((i,x)=>'<div class="list-item"><span>'+i.date+': '+i.text+'</span><button class="delete-btn" onclick="deleteItem(\'workout\','+x+')">Del</button></div>').join('');
+  loadHabits();updateStats()
+}
+
+function updateStats(){
+  let money=load('money');
+  let total=money.reduce((s,i)=>s+(i.amt||0),0);
+  document.getElementById('totalMoney').innerText='N'+total;
+  document.getElementById('totalHabits').innerText=load('habits').length;
+  document.getElementById('totalWorkouts').innerText=load('workout').length;
+}
+</script>
+</body>
+</html> 
